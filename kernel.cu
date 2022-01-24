@@ -1,9 +1,7 @@
 
 #include "Header.cuh"
 
-
-//-----working with file-----
-
+// read raw(v210)
 int readFrame(char* decklinkFile, unsigned int* words) {
 
     FILE* input = fopen(decklinkFile, "rb");
@@ -19,6 +17,7 @@ int readFrame(char* decklinkFile, unsigned int* words) {
     return 0;
 }
 
+// write bitmap
 int writeBitmap(char* filename, uchar3* rgb, int width, int height)
 {
     int Real_width = width * 3 + width % 4;		/*	Calculation of actual width to fit 4-byte boundary */
@@ -96,10 +95,8 @@ int createBitmap(char* filename, uchar3* rgb, int width, int height) {
     return 0;
 }
 
-//-----/working with file-----
 
-
-
+// devecie method 
 __device__ void calcAndSetBitmap(short* Y, short* U, short* V, uchar3* pixel) {
     short R, G, B;
 
@@ -117,6 +114,7 @@ __device__ void calcAndSetBitmap(short* Y, short* U, short* V, uchar3* pixel) {
     pixel->z = (unsigned char)(B >> 2); //0;
 }
 
+// kernel method
 __global__ void kernelYUVtoRGB(uchar3* bitmap, int N, unsigned int* words) {
 
     int indWithinTheGrid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -166,15 +164,12 @@ void convertYUV2RGB(unsigned int* d_wordsIn, unsigned int* h_wordsIn,
     uchar3* d_rgbOut, uchar3* h_rgbOut,
     int words, int sizeIn, int sizeOut)
 {
-
+    // time
     cudaEvent_t start, stop, startK, stopK, startCpyIn, stopCpyIn, startCpyOut, stopCpyOut;
     CUDA_CALL(cudaEventCreate(&start));        CUDA_CALL(cudaEventCreate(&stop));
     CUDA_CALL(cudaEventCreate(&startK));       CUDA_CALL(cudaEventCreate(&stopK));
     CUDA_CALL(cudaEventCreate(&startCpyIn));   CUDA_CALL(cudaEventCreate(&stopCpyIn));
     CUDA_CALL(cudaEventCreate(&startCpyOut));  CUDA_CALL(cudaEventCreate(&stopCpyOut));
-
-   // dim3 blocks(16);
-   // dim3 threadsPerBlock(16);
 
     CUDA_CALL(cudaEventRecord(start));
     CUDA_CALL(cudaEventRecord(startCpyIn));
@@ -182,7 +177,8 @@ void convertYUV2RGB(unsigned int* d_wordsIn, unsigned int* h_wordsIn,
     CUDA_CALL(cudaMemcpy(d_wordsIn, h_wordsIn, sizeIn, cudaMemcpyHostToDevice));
     CUDA_CALL(cudaEventRecord(stopCpyIn));     CUDA_CALL(cudaEventSynchronize(stopCpyIn));
     CUDA_CALL(cudaEventRecord(startK));
-
+    
+    // call kernel convert yuv(v210) to rbg 
     kernelYUVtoRGB << < 1024, 1024 >> > (d_rgbOut, words, d_wordsIn);
     CUDA_CHECK();
     CUDA_CALL(cudaEventRecord(stopK));     CUDA_CALL(cudaEventSynchronize(stopK));
@@ -193,7 +189,8 @@ void convertYUV2RGB(unsigned int* d_wordsIn, unsigned int* h_wordsIn,
 
     CUDA_CALL(cudaDeviceSynchronize());
     CUDA_CALL(cudaEventRecord(stop));  CUDA_CALL(cudaEventSynchronize(stop));
-
+    
+    // process time
     float timeT, timeK, timeCpyIn, timeCpyOut;
     CUDA_CALL(cudaEventElapsedTime(&timeT, start, stop));
     CUDA_CALL(cudaEventElapsedTime(&timeCpyIn, startCpyIn, stopCpyIn));
@@ -210,7 +207,6 @@ void convertYUV2RGB(unsigned int* d_wordsIn, unsigned int* h_wordsIn,
 
 int colourConverter(char* decklinkFile)
 {
- 
     Resolution mode = Res_8K;
     unsigned int width, height;
 
@@ -263,7 +259,11 @@ int colourConverter(char* decklinkFile)
 
 int main()
 {
-    (colourConverter("sample02.raw") != 0) ? printf(" ERROR HA-HA-HA-HA-HA-HA-HA-HA-HA-HA!!!\n Keep calm and find a solution! You can do it!\n") : printf("it is ok, PEACE!!!!!\n");
-
+    if(colourConverter("sample02.raw")) {
+        printf(" ERROR!\n");
+        return -1;
+    }
+    
+    printf("it is ok!\n");
     return 0;
 }
